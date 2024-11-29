@@ -3,3 +3,6 @@ build/
 database.c
 main_old.c
 main.h
+*.o
+# build
+ptchat
