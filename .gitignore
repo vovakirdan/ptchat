@@ -1,1 +1,5 @@
 build/
+.vscode/
+database.c
+main_old.c
+main.h
