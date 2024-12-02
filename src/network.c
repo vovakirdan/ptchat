@@ -225,3 +225,40 @@ size_t system_broadcasting(upd_chatroom *chatroom, bool include_self, const char
 
     return sent_count;
 }
+
+void notify_reset_conn(upd_chatroom *chatroom, const char *msg, conn_ctx *ctx, bool clean_client) {
+    if (!chatroom || !ctx || !msg) return;
+
+    // Send the message to the client
+    simple_send(chatroom, msg, strlen(msg), ctx->conn_addr);
+
+    // Send the connection reset message
+    const char *connection_reset = "This connection has been reset.\n\n";
+    simple_send(chatroom, connection_reset, strlen(connection_reset), ctx->conn_addr);
+
+    if (clean_client) {
+        // Clear the client context completely
+        clear_conn(ctx);
+    } else {
+        // Send the main menu again
+        const char *main_menu = "1. Sign up\n2. Sign in\nPlease choose (1 | 2): ";
+        simple_send(chatroom, main_menu, strlen(main_menu), ctx->conn_addr);
+        ctx->conn_status = 1; // Reset to main menu status
+    }
+}
+
+char *addr_to_msg(struct sockaddr_in addr) {
+    char ip_str[INET_ADDRSTRLEN];
+    if (!inet_ntop(AF_INET, &(addr.sin_addr), ip_str, sizeof(ip_str))) {
+        perror("inet_ntop failed");
+        return NULL;
+    }
+    size_t msg_len = INET_ADDRSTRLEN + 8; // Enough space for IP, colon, port, newline, and null terminator
+    char *msg = malloc(msg_len);
+    if (!msg) {
+        fprintf(stderr, "Memory allocation failed in addr_to_msg\n");
+        return NULL;
+    }
+    snprintf(msg, msg_len, "%s:%d\n", ip_str, ntohs(addr.sin_port));
+    return msg;
+}

@@ -184,7 +184,7 @@ void run_server(upd_chatroom *chatroom) {
             if (client_idx != (size_t)-1) {
                 const char *user_already_signin = "User already signed in at another client.\n";
                 simple_send(chatroom, user_already_signin, strlen(user_already_signin), client_addr);
-                char *addr_msg = addr_to_msg(chatroom, vector__access(conn_ctx, client_idx, chatroom->clients)->conn_addr);
+                char *addr_msg = addr_to_msg(vector__access(conn_ctx, client_idx, chatroom->clients)->conn_addr);
                 simple_send(chatroom, addr_msg, strlen(addr_msg), client_addr);
                 free(addr_msg);
                 const char *user_resign_in = "This sign-in would quit that client, are you sure? (yes | no)\n";
@@ -215,11 +215,19 @@ void run_server(upd_chatroom *chatroom) {
                     notify_reset_conn(chatroom, invalid_pass_len, client_ctx, false);
                     continue;
                 }
-                if (flag != 0) {
-                    const char *invalid_pass_fmt = "Invalid password format, rules to follow:\n8-64 ASCII chars.\nLetters, numbers, and special characters.\n";
+                if (flag == 1) {
+                    const char *invalid_pass_fmt = "Invalid password format, rules to follow:\n"
+                                                "8-64 ASCII characters.\n"
+                                                "Letters, numbers, and special characters.\n";
                     notify_reset_conn(chatroom, invalid_pass_fmt, client_ctx, false);
                     continue;
                 }
+                if (flag == 2) {
+                    const char *password_not_complex = "The password is not complex enough.\n";
+                    notify_reset_conn(chatroom, password_not_complex, client_ctx, false);
+                    continue;
+                }
+                // Proceed to add the user
                 if (!user_db_add(chatroom->user_db, user_uid, buff_str)) {
                     const char *signup_fail = "Failed to sign up. Try again.\n";
                     notify_reset_conn(chatroom, signup_fail, client_ctx, false);

@@ -127,4 +127,31 @@ void checkIPbuffer(char *IPbuffer);
  */
 size_t system_broadcasting(upd_chatroom *chatroom, bool include_self, const char *sender_uid, const char *message);
 
+/**
+ * @brief Notifies a client of a reset condition and resets or clears their connection context.
+ *
+ * This function sends a message to the client to inform them of an error or reset condition.
+ * It then either clears the client's connection context entirely or resets it to the main menu,
+ * depending on the `clean_client` parameter.
+ *
+ * @param chatroom Pointer to the chatroom instance containing server and client information.
+ * @param msg The message to send to the client.
+ * @param ctx The client connection context to reset or clear.
+ * @param clean_client If `true`, clears the client's context completely; if `false`, resets to the main menu.
+ */
+void notify_reset_conn(upd_chatroom *chatroom, const char *msg, conn_ctx *ctx, bool clean_client);
+
+/**
+ * @brief Converts a client's socket address into a string message.
+ *
+ * This function takes a `struct sockaddr_in` representing a client's address
+ * and returns a dynamically allocated string containing the IP address and port
+ * in the format "IP:Port\n".
+ *
+ * @param addr The client's socket address (`struct sockaddr_in`).
+ * @return A dynamically allocated string with the address information. Caller must free.
+ *         Returns `NULL` on failure.
+ */
+char *addr_to_msg(struct sockaddr_in addr);
+
 #endif // NETWORK_H

@@ -103,4 +103,39 @@ char *user_db_get_list(user_database *db, bool show_status);
  */
 void user_db_set_status(user_database *db, const char *uid, int status);
 
+/**
+ * @brief Checks if a user UID meets the required format.
+ *
+ * The UID must be between `UID_MIN_LEN` and `UID_MAX_LEN` characters long,
+ * and can contain letters (a-z, A-Z), numbers (0-9), and the hyphen '-'.
+ *
+ * @param uid The UID string to check.
+ * @return Returns:
+ *         - `0` if the UID is valid.
+ *         - `-1` if the UID length is invalid.
+ *         - `1` if the UID contains invalid characters.
+ */
+int user_uid_check(const char *uid);
+
+/**
+ * @brief Checks if a password string meets the required complexity criteria.
+ *
+ * The password must be between `PASSWORD_MIN_LEN` and `PASSWORD_MAX_LEN` characters long.
+ * It must contain at least three out of the following four types of characters:
+ * - Lowercase letters
+ * - Uppercase letters
+ * - Numbers
+ * - Special characters (e.g., `~!@#$%^&(){}[]-_=+;:,.<>/|`)
+ *
+ * The password should not contain any spaces or invalid characters.
+ *
+ * @param pass_str The password string to check.
+ * @return Returns:
+ *         - `0` if the password is valid.
+ *         - `-1` if the password length is invalid.
+ *         - `1` if the password contains invalid characters.
+ *         - `2` if the password does not meet the complexity requirements.
+ */
+int pass_str_check(const char *pass_str);
+
 #endif // USER_H

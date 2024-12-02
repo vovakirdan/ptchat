@@ -194,3 +194,58 @@ void user_db_set_status(user_database *db, const char *uid, int status) {
 
     if (entry) entry->user_status = status;
 }
+
+int user_uid_check(const char *uid) {
+    if (!uid) return -1;
+    size_t len = strlen(uid);
+    if (len < UID_MIN_LEN || len > UID_MAX_LEN)
+        return -1;
+    for (size_t i = 0; i < len; i++) {
+        char c = uid[i];
+        if (!isalnum((unsigned char)c) && c != '-') {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+int pass_str_check(const char *pass_str) {
+    if (!pass_str) return -1;
+    size_t len = strlen(pass_str);
+    if (len < PASSWORD_MIN_LEN || len > PASSWORD_MAX_LEN)
+        return -1;
+
+    const char *special_chars = "~!@#$%^&(){}[]-_=+;:,.<>/|";
+    int contain_num = 0;
+    int contain_lower_char = 0;
+    int contain_upper_char = 0;
+    int contain_special_char = 0;
+
+    for (size_t i = 0; i < len; i++) {
+        char c = pass_str[i];
+        if (isdigit((unsigned char)c)) {
+            contain_num = 1;
+            continue;
+        }
+        if (islower((unsigned char)c)) {
+            contain_lower_char = 1;
+            continue;
+        }
+        if (isupper((unsigned char)c)) {
+            contain_upper_char = 1;
+            continue;
+        }
+        if (strchr(special_chars, c)) {
+            contain_special_char = 1;
+            continue;
+        }
+        // Invalid character
+        return 1;
+    }
+
+    int complexity = contain_num + contain_lower_char + contain_upper_char + contain_special_char;
+    if (complexity < 3)
+        return 2;
+
+    return 0; // Password is valid
+}
