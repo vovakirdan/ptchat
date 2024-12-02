@@ -31,7 +31,11 @@ Stop the conflicting process or use another port.
 
 * Open a terminal and run:
 ```bash
-nc 127.0.0.1 8081
+nc -u 127.0.0.1 8081
+```
+Or (recommended)
+```bash
+echo "hello" | nc -u 127.0.0.1 8081
 ```
 * This connects a client to the server.
 ### 2. Using Multiple Clients:
@@ -75,8 +79,9 @@ nc 127.0.0.1 8081
     * Compile and run it on the remote machine.
 * Clients can connect using the server's public IP:
 ```bash
-nc <server-ip> 8081
+nc -u <server-ip> 8081
 ```
+> To get machine ip use `hostname -I` command
 ### 3. Firewall Configuration:
 
 * Ensure the server's port is open for inbound traffic:
