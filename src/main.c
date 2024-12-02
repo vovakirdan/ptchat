@@ -74,7 +74,7 @@ void run_server(upd_chatroom *chatroom) {
         conn_ctx *client_ctx = vector__access(conn_ctx, conn_idx, chatroom->clients);
         // printf("Received message from client %s:%d: %s\n",
         //        inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port), buffer);
-        // printf("connection status: %d\n", client_ctx->conn_status);
+        printf("connection status: %d\n", client_ctx->conn_status);
         if (client_ctx->conn_status == 0) {
             // Client needs to provide a username
             if (user_db_contains(chatroom->user_db, buffer)) {

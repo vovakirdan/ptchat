@@ -46,7 +46,24 @@ user_database *user_db_init(void) {
 void user_db_free(user_database *db) {
     if (!db) return;
 
-    dict__destroy(user_entry, (void (*)(void *))user_entry_free, db->user_db);
+    // Free items
+    for (size_t i = 0; i < db->user_db.items.size; i++) {
+        user_entry *entry = vector__access(user_entry, i, db->user_db.items);
+        if (entry) user_entry_free(entry);
+    }
+    vector__destroy_(sizeof(user_entry), NULL, &db->user_db.items);
+
+    // Free keys
+    for (size_t i = 0; i < db->user_db.keys.size; i++) {
+        struct slice(char) *key_slice = vector__access(struct slice(char), i, db->user_db.keys);
+        if (key_slice && key_slice->data) {
+            free(key_slice->data);
+            key_slice->data = NULL;
+            key_slice->size = 0;
+        }
+    }
+    vector__destroy(struct slice(char), NULL, db->user_db.keys);
+
     free(db->user_list_fmt);
     free(db);
 }
@@ -69,7 +86,16 @@ bool user_db_add(user_database *db, const char *uid, const char *password) {
         return false;
     }
 
-    struct slice key = slice__create(char, uid, strlen(uid));
+    // Copy the UID for the key
+    char *uid_copy = strdup(uid);
+    if (!uid_copy) {
+        fprintf(stderr, "Error allocating memory for UID copy.\n");
+        free(hash);
+        user_entry_free(entry);
+        return false;
+    }
+
+    struct slice key = slice__create(char, uid_copy, strlen(uid_copy));
     dict__insert(user_entry, key, *entry, db->user_db);
 
     // Update formatted user list
@@ -79,7 +105,8 @@ bool user_db_add(user_database *db, const char *uid, const char *password) {
     strcat(db->user_list_fmt, "\n");
 
     free(hash);
-    user_entry_free(entry);
+    // Do not free 'entry' since it's stored in the dictionary
+    // Do not free 'uid_copy' since it's used in the dictionary
 
     return true;
 }
@@ -120,11 +147,25 @@ char *user_db_get_list(user_database *db, bool show_status) {
     strcpy(list_with_status, "");
 
     for (size_t i = 0; i < db->user_db.keys.size; i++) {
-        const char *uid = (const char *)vector__access(char *, i, db->user_db.keys.data);
-        user_entry *entry = dict__search(user_entry, slice__create(char, uid, strlen(uid)), db->user_db);
+        // const char *uid = (const char *)vector__access(char, i, db->user_db.keys.data);
+        // user_entry *entry = dict__search(user_entry, slice__create(char, uid, strlen(uid)), db->user_db);
+        struct slice(char) *key_slice = vector__access(struct slice(char), i, db->user_db.keys);
+        if (!key_slice || !key_slice->data) continue;
+
+        // const char *status = entry->user_status ? "online" : "offline";
+        // size_t entry_size = strlen(uid) + strlen(status) + 16;
+        const char *uid = key_slice->data;
+        size_t uid_len = key_slice->size;
+
+        // Retrieve the user entry
+        user_entry *entry = dict__search(user_entry, *key_slice, db->user_db);
+        if (!entry) continue; // Should not happen, but check anyway
 
         const char *status = entry->user_status ? "online" : "offline";
-        size_t entry_size = strlen(uid) + strlen(status) + 16;
+        size_t status_len = strlen(status);
+
+        // Calculate required buffer size
+        size_t entry_size = uid_len + status_len + 4; // For ": ", "\n", and null terminator
 
         if (strlen(list_with_status) + entry_size >= buffer_size) {
             buffer_size *= 2;
