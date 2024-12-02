@@ -20,9 +20,9 @@ typedef struct {
  * @param conn_addr The address of the connection.
  * @param conn_bind_uid The bound user UID (can be NULL initially).
  * @param conn_status The initial status of the connection.
- * @return A pointer to the initialized `conn_ctx`. Caller must free.
+ * @return An initialized `conn_ctx`.
  */
-conn_ctx *conn_ctx_init(struct sockaddr_in conn_addr, char *conn_bind_uid, int conn_status);
+conn_ctx conn_ctx_init(struct sockaddr_in conn_addr, char *conn_bind_uid, int conn_status);
 
 /**
  * @brief Frees a connection context.
@@ -115,5 +115,16 @@ void checkHostEntry(struct hostent * hostentry);
  * @return The IP address of the host.
  */
 void checkIPbuffer(char *IPbuffer);
+
+/**
+ * Broadcast a message to all connected clients.
+ *
+ * @param chatroom Pointer to the chatroom structure.
+ * @param include_self Whether to include the sender in the broadcast.
+ * @param sender_uid The UID of the sender (can be NULL for system messages).
+ * @param message The message to broadcast.
+ * @return The number of clients the message was successfully sent to.
+ */
+size_t system_broadcasting(upd_chatroom *chatroom, bool include_self, const char *sender_uid, const char *message);
 
 #endif // NETWORK_H

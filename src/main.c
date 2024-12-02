@@ -4,6 +4,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <errno.h>
 #include "network.h"
 #include "user.h"
 #include "message.h"
@@ -28,83 +29,134 @@ void handle_signal(int signal) {
 void run_server(upd_chatroom *chatroom) {
     struct sockaddr_in client_addr;
     socklen_t addr_len = sizeof(client_addr);
-    char buffer[INIT_BUFF_SIZE];
+    char buffer[chatroom->buff_size];
+
+    printf("Chat server is running...\n");
 
     while (1) {
-        memset(buffer, 0, INIT_BUFF_SIZE);
-        ssize_t received = recvfrom(chatroom->server_fd, buffer, INIT_BUFF_SIZE - 1, 0,
+        memset(buffer, 0, chatroom->buff_size);
+
+        // Receive a message from any client
+        ssize_t received = recvfrom(chatroom->server_fd, buffer, chatroom->buff_size - 1, MSG_WAITALL,
                                     (struct sockaddr *)&client_addr, &addr_len);
 
         if (received < 0) {
-            perror("Error receiving data");
+            perror("recvfrom failed");
             continue;
         }
 
-        buffer[received] = '\0'; // Null-terminate the buffer
+        buffer[received] = '\0'; // Null-terminate the received data
+        printf("Received %zd bytes from %s:%d. Message: %s\n", received,
+            inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port), buffer);
 
-        printf("Received message from %s:%d -> %s\n",
-               inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port), buffer);
+        // Echo the message back to the client
+        // if (simple_send(chatroom, buffer, received, client_addr) < 0) {
+        //     perror("Error sending response");
+        // }
 
         // Check if this is a new connection
         size_t conn_idx = get_conn_idx(chatroom, client_addr);
-        if (conn_idx == -1) {
+        printf("conn_idx %zu\n", conn_idx);
+        if (conn_idx == (size_t)-1) {
             // New client connection
-            conn_ctx *new_client = conn_ctx_init(client_addr, NULL, 0);
-            vector__push_back(conn_ctx, *new_client, chatroom->clients);
+            conn_ctx new_client = conn_ctx_init(client_addr, NULL, 0); // Unbound, waiting for username
+            vector__push_back(conn_ctx, new_client, chatroom->clients);
 
-            const char *welcome_msg = "Welcome to the chat server!\n";
+            const char *welcome_msg = "Welcome to the chat server! Please log in or sign up.\n";
             simple_send(chatroom, welcome_msg, strlen(welcome_msg), client_addr);
+
+            printf("New client connected: %s:%d\n",
+                inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
             continue;
         }
 
         // Existing client processing
         conn_ctx *client_ctx = vector__access(conn_ctx, conn_idx, chatroom->clients);
+        // printf("Received message from client %s:%d: %s\n",
+        //        inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port), buffer);
+        // printf("connection status: %d\n", client_ctx->conn_status);
+        if (client_ctx->conn_status == 0) {
+            // Client needs to provide a username
+            if (user_db_contains(chatroom->user_db, buffer)) {
+                // Username exists, prompt for password
+                client_ctx->conn_bind_uid = strdup(buffer);
+                client_ctx->conn_status = 1; // Awaiting password
 
-        // Process the received message
-        if (strcmp(buffer, "~:q!") == 0) {
-            // Handle user sign-out
-            if (client_ctx->conn_bind_uid) {
-                user_db_set_status(chatroom->user_db, client_ctx->conn_bind_uid, 0);
-            }
-            simple_send(chatroom, "You have signed out.\n", 21, client_addr);
-            clear_conn(client_ctx);
-            continue;
-        }
-
-        if (strcmp(buffer, "~:lu") == 0) {
-            // Send user list
-            char *user_list = user_db_get_list(chatroom->user_db, true);
-            simple_send(chatroom, user_list, strlen(user_list), client_addr);
-            free(user_list);
-            continue;
-        }
-
-        // Message precheck for attributes
-        msg_attr attr;
-        msg_precheck(buffer, &attr);
-
-        if (attr.msg_type == MSG_PRIVATE && attr.target_uid) {
-            // Send private message
-            size_t target_idx = get_client_idx(chatroom, attr.target_uid);
-            if (target_idx != -1) {
-                conn_ctx *target_ctx = vector__access(conn_ctx, target_idx, chatroom->clients);
-                simple_send(chatroom, buffer, strlen(buffer), target_ctx->conn_addr);
+                const char *password_prompt = "Password: ";
+                simple_send(chatroom, password_prompt, strlen(password_prompt), client_addr);
             } else {
-                simple_send(chatroom, "Target user not online.\n", 25, client_addr);
+                // Username doesn't exist, create new user
+                client_ctx->conn_bind_uid = strdup(buffer);
+                client_ctx->conn_status = 2; // Awaiting password for new user
+
+                const char *signup_prompt = "New user! Please provide a password to sign up: ";
+                simple_send(chatroom, signup_prompt, strlen(signup_prompt), client_addr);
             }
-        } else if (attr.msg_type == MSG_TAGGED && attr.target_uid) {
-            // Handle tagged message
-            size_t target_idx = get_client_idx(chatroom, attr.target_uid);
-            if (target_idx != -1) {
-                conn_ctx *target_ctx = vector__access(conn_ctx, target_idx, chatroom->clients);
-                simple_send(chatroom, buffer, strlen(buffer), target_ctx->conn_addr);
+            continue;
+        }
+
+        if (client_ctx->conn_status == 1 || client_ctx->conn_status == 2) {
+            // Handle password entry
+            if (client_ctx->conn_status == 1) {
+                // Authenticate existing user
+                if (user_db_validate_password(chatroom->user_db, client_ctx->conn_bind_uid, buffer)) {
+                    client_ctx->conn_status = 3; // Authenticated
+                    user_db_set_status(chatroom->user_db, client_ctx->conn_bind_uid, 1);
+
+                    const char *login_success = "Logged in successfully!\n";
+                    simple_send(chatroom, login_success, strlen(login_success), client_addr);
+
+                    char *user_list = user_db_get_list(chatroom->user_db, true);
+                    simple_send(chatroom, user_list, strlen(user_list), client_addr);
+                    free(user_list);
+                } else {
+                    const char *auth_fail = "Incorrect password. Try again.\n";
+                    simple_send(chatroom, auth_fail, strlen(auth_fail), client_addr);
+                }
+            } else if (client_ctx->conn_status == 2) {
+                // Register new user
+                if (user_db_add(chatroom->user_db, client_ctx->conn_bind_uid, buffer)) {
+                    client_ctx->conn_status = 3; // Authenticated
+                    user_db_set_status(chatroom->user_db, client_ctx->conn_bind_uid, 1);
+
+                    const char *signup_success = "Sign-up successful! You are now logged in.\n";
+                    simple_send(chatroom, signup_success, strlen(signup_success), client_addr);
+
+                    char *user_list = user_db_get_list(chatroom->user_db, true);
+                    simple_send(chatroom, user_list, strlen(user_list), client_addr);
+                    free(user_list);
+                } else {
+                    const char *signup_fail = "Failed to sign up. Try again.\n";
+                    simple_send(chatroom, signup_fail, strlen(signup_fail), client_addr);
+                }
             }
-        } else {
-            // Broadcast public message
-            system_broadcast(chatroom, false, client_ctx->conn_bind_uid, buffer);
+            continue;
+        }
+
+        // Authenticated client: Process chat messages
+        if (client_ctx->conn_status == 3) {
+            if (strcmp(buffer, "~:q!") == 0) {
+                // Handle sign-out
+                user_db_set_status(chatroom->user_db, client_ctx->conn_bind_uid, 0);
+                clear_conn(client_ctx);
+
+                const char *logout_msg = "You have signed out.\n";
+                simple_send(chatroom, logout_msg, strlen(logout_msg), client_addr);
+
+                char broadcast_msg[256];
+                snprintf(broadcast_msg, sizeof(broadcast_msg), "[SYSTEM] %s has signed out.\n", client_ctx->conn_bind_uid);
+                system_broadcasting(chatroom, false, client_ctx->conn_bind_uid, broadcast_msg);
+                continue;
+            }
+
+            // Broadcast message to other clients
+            char broadcast_msg[512];
+            snprintf(broadcast_msg, sizeof(broadcast_msg), "[%s]: %s\n", client_ctx->conn_bind_uid, buffer);
+            system_broadcasting(chatroom, true, client_ctx->conn_bind_uid, broadcast_msg);
         }
     }
 }
+
 
 // Main entry point
 int main(int argc, char *argv[]) {
@@ -138,7 +190,7 @@ int main(int argc, char *argv[]) {
     // address into ASCII string
     IPbuffer = inet_ntoa(*((struct in_addr*)
                         host_entry->h_addr_list[0]));
-    printf("Chat server started on %s %s:%d.\n", hostbuffer, IPbuffer, port);
+    // printf("Script get started on %s %s:%d.\n", hostbuffer, IPbuffer, port);
 
     // Run the server
     run_server(server);
