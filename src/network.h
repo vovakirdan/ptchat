@@ -3,6 +3,7 @@
 
 #include <netinet/in.h>
 #include <netdb.h>
+#include "user.h"
 #include "../cbinc/vector.h"
 #include "../cbinc/dict.h"
 
@@ -37,7 +38,7 @@ typedef struct {
     int server_fd;                      // Server socket file descriptor
     size_t buff_size;                   // Buffer size for I/O
     int err_code;                       // Error code for server state
-    struct dict(user_entry) user_db;    // User database
+    user_database *user_db;    // User database
     struct vector(conn_ctx) clients;    // List of connected clients
 } upd_chatroom;
 

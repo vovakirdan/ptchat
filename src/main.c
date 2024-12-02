@@ -64,7 +64,7 @@ void run_server(upd_chatroom *chatroom) {
         if (strcmp(buffer, "~:q!") == 0) {
             // Handle user sign-out
             if (client_ctx->conn_bind_uid) {
-                user_db_set_status(&chatroom->user_db, client_ctx->conn_bind_uid, 0);
+                user_db_set_status(chatroom->user_db, client_ctx->conn_bind_uid, 0);
             }
             simple_send(chatroom, "You have signed out.\n", 21, client_addr);
             clear_conn(client_ctx);
@@ -73,7 +73,7 @@ void run_server(upd_chatroom *chatroom) {
 
         if (strcmp(buffer, "~:lu") == 0) {
             // Send user list
-            char *user_list = user_db_get_list(&chatroom->user_db, true);
+            char *user_list = user_db_get_list(chatroom->user_db, true);
             simple_send(chatroom, user_list, strlen(user_list), client_addr);
             free(user_list);
             continue;

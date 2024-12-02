@@ -42,8 +42,17 @@ upd_chatroom *upd_chatroom_init(uint16_t port, size_t buff_size) {
     chatroom->port = port;
     chatroom->buff_size = buff_size;
     chatroom->err_code = 0;
-    chatroom->clients = vector__create(conn_ctx);
 
+    // Initialize user database
+    chatroom->user_db = user_db_init();
+    if (!chatroom->user_db) {
+        fprintf(stderr, "Error initializing user database.\n");
+        close(chatroom->server_fd);
+        free(chatroom);
+        return NULL;
+    }
+
+    chatroom->clients = vector__create(conn_ctx);
     return chatroom;
 }
 
@@ -55,7 +64,12 @@ void upd_chatroom_free(upd_chatroom *chatroom) {
         conn_ctx *ctx = vector__access(conn_ctx, i, chatroom->clients);
         conn_ctx_free(ctx);
     }
+
     vector__destroy(conn_ctx, NULL, chatroom->clients);
+
+    // Free the user database
+    user_db_free(chatroom->user_db);
+
     free(chatroom);
 }
 
