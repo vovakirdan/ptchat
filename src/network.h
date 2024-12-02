@@ -2,6 +2,7 @@
 #define NETWORK_H
 
 #include <netinet/in.h>
+#include <netdb.h>
 #include "../cbinc/vector.h"
 #include "../cbinc/dict.h"
 
@@ -91,5 +92,27 @@ void clear_conn(conn_ctx *ctx);
  * @return The index of the client in the `clients` vector, or -1 if not found.
  */
 size_t get_client_idx(upd_chatroom *chatroom, const char *uid);
+
+/**
+ * @brief Check if the host name is valid.
+ *
+ * @param hostname The host name to check.
+ */
+void checkHostName(int hostname);
+
+/**
+ * @brief Check if the host entry is valid.
+ *
+ * @param hostentry The host entry to check.
+ */
+void checkHostEntry(struct hostent * hostentry);
+
+/**
+ * @brief Convert the host name to IP address.
+ *
+ * @param hostname The host name to convert.
+ * @return The IP address of the host.
+ */
+void checkIPbuffer(char *IPbuffer);
 
 #endif // NETWORK_H

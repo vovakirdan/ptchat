@@ -110,6 +110,10 @@ void run_server(upd_chatroom *chatroom) {
 int main(int argc, char *argv[]) {
     // Parse command-line arguments
     uint16_t port = (argc > 1) ? atoi(argv[1]) : DEFAULT_PORT;
+    char hostbuffer[256];
+    char *IPbuffer;
+    struct hostent *host_entry;
+    int hostname;
 
     // Set up signal handlers for graceful shutdown
     signal(SIGINT, handle_signal);
@@ -122,7 +126,19 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    printf("Chat server started on port %d.\n", port);
+    // To retrieve hostname
+    hostname = gethostname(hostbuffer, sizeof(hostbuffer));
+    checkHostName(hostname);
+
+    // To retrieve host information
+    host_entry = gethostbyname(hostbuffer);
+    checkHostEntry(host_entry);
+
+    // To convert an Internet network
+    // address into ASCII string
+    IPbuffer = inet_ntoa(*((struct in_addr*)
+                        host_entry->h_addr_list[0]));
+    printf("Chat server started on %s %s:%d.\n", hostbuffer, IPbuffer, port);
 
     // Run the server
     run_server(server);

@@ -102,3 +102,60 @@ size_t get_client_idx(upd_chatroom *chatroom, const char *uid) {
     }
     return -1; // Client not found
 }
+
+void GetMachineName(char machineName[150]) {
+    char Name[150];
+    int i=0;
+
+    #ifdef WIN32
+        TCHAR infoBuf[150];
+        DWORD bufCharCount = 150;
+        memset(Name, 0, 150);
+        if( GetComputerName( infoBuf, &bufCharCount ) )
+        {
+            for(i=0; i<150; i++)
+            {
+                Name[i] = infoBuf[i];
+            }
+        }
+        else
+        {
+            strcpy(Name, "Unknown_Host_Name");
+        }
+    #else
+        memset(Name, 0, 150);
+        gethostname(Name, 150);
+    #endif
+    strncpy(machineName, Name, 150);
+}
+
+// Returns hostname for the local computer
+void checkHostName(int hostname)
+{
+    if (hostname == -1)
+    {
+        perror("gethostname");
+        exit(1);
+    }
+}
+
+// Returns host information corresponding to host name
+void checkHostEntry(struct hostent * hostentry)
+{
+    if (hostentry == NULL)
+    {
+        perror("gethostbyname");
+        exit(1);
+    }
+}
+
+// Converts space-delimited IPv4 addresses
+// to dotted-decimal format
+void checkIPbuffer(char *IPbuffer)
+{
+    if (NULL == IPbuffer)
+    {
+        perror("inet_ntoa");
+        exit(1);
+    }
+}
